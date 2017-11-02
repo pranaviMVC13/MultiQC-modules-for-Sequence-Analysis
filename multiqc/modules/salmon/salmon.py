@@ -37,19 +37,22 @@ class MultiqcModule(BaseMultiqcModule):
             middleRatio = OrderedDict()
             lastRatio = OrderedDict()
             s_name = self.clean_s_name(s_name, f['root'])
-            if (os.path.dirname(f['root']).__contains__('\\bias')):
+            if os.path.basename(os.path.dirname(f['root'])) == 'bias' :
                 gc = GCModel()
                 gc.from_file(os.path.dirname(f['root']))
-                first_Row = gc.obs_[0] / gc.exp_[0]
-                middle_Row = gc.obs_[1] / gc.exp_[1]
-                last_Row = gc.obs_[2] / gc.exp_[2]
-                for i in range(len(first_Row)):
-                    firstRatio[i]=first_Row[i]
-                    middleRatio[i]=middle_Row[i]
-                    lastRatio[i]=last_Row[i]
-                self.salmon_bias_FirstSample[s_name]=firstRatio
-                self.salmon_bias_MiddleSample[s_name]=middleRatio
-                self.salmon_bias_LastSample[s_name]=lastRatio
+                if gc.valid_ :
+                    first_Row = gc.obs_[0] / gc.exp_[0]
+                    middle_Row = gc.obs_[1] / gc.exp_[1]
+                    last_Row = gc.obs_[2] / gc.exp_[2]
+                    for i in range(len(first_Row)):
+                        firstRatio[i]=first_Row[i]
+                        middleRatio[i]=middle_Row[i]
+                        lastRatio[i]=last_Row[i]
+                    self.salmon_bias_FirstSample[s_name]=firstRatio
+                    self.salmon_bias_MiddleSample[s_name]=middleRatio
+                    self.salmon_bias_LastSample[s_name]=lastRatio
+                else :
+                    log.error('Failed to open {}'.format(os.path.dirname(f['root'])))
 
             #s_name = self.clean_s_name(s_name, f['root'])
             self.salmon_meta[s_name] = json.loads(f['f'])
@@ -60,8 +63,6 @@ class MultiqcModule(BaseMultiqcModule):
             if os.path.basename(f['root']) == 'libParams':
                 s_name = os.path.basename( os.path.dirname(f['root']) )
                 s_name = self.clean_s_name(s_name, f['root'])
-                log.info("Hey m in salmon printing SALmon FLD sname")
-                log.info(s_name)
                 parsed = OrderedDict()
                 for i, v in enumerate(f['f'].split()):
                     parsed[i] = float(v)
@@ -134,18 +135,6 @@ class MultiqcModule(BaseMultiqcModule):
         }
         self.add_section(plot=linegraph.plot(self.salmon_bias_FirstSample, pconfig2))
 
-        pconfig2 = {
-            'smooth_points': 500,
-            'id': 'salmon_plot2',
-            'title': 'Salmon : GC Bias Ratio in Middle of Read',
-            'ylab': 'Ratio',
-            'xlab': 'GC Biases',
-            'ymin': 0,
-            'xmin': 0,
-            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
-        }
-        self.add_section(plot=linegraph.plot(self.salmon_bias_MiddleSample, pconfig2))
-
         pconfig3 = {
             'smooth_points': 500,
             'id': 'salmon_plot2',
@@ -156,4 +145,16 @@ class MultiqcModule(BaseMultiqcModule):
             'xmin': 0,
             'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
         }
-        self.add_section(plot=linegraph.plot(self.salmon_bias_LastSample, pconfig2))
+        self.add_section(plot=linegraph.plot(self.salmon_bias_MiddleSample, pconfig3))
+
+        pconfig4 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot2',
+            'title': 'Salmon : GC Bias Ratio in End of Read',
+            'ylab': 'Ratio',
+            'xlab': 'GC Biases',
+            'ymin': 0,
+            'xmin': 0,
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_bias_LastSample, pconfig4))
