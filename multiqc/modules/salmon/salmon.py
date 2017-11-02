@@ -7,6 +7,7 @@ from collections import OrderedDict
 import json
 import logging
 import os
+from GCModel import GCModel
 
 from multiqc import config
 from multiqc.plots import linegraph
@@ -26,10 +27,31 @@ class MultiqcModule(BaseMultiqcModule):
 
         # Parse meta information. JSON win!
         self.salmon_meta = dict()
+        self.salmon_bias_FirstSample = dict()
+        self.salmon_bias_MiddleSample = dict()
+        self.salmon_bias_LastSample = dict()
         for f in self.find_log_files('salmon/meta'):
             # Get the s_name from the parent directory
             s_name = os.path.basename( os.path.dirname(f['root']) )
+            firstRatio= OrderedDict()
+            middleRatio = OrderedDict()
+            lastRatio = OrderedDict()
             s_name = self.clean_s_name(s_name, f['root'])
+            if (os.path.dirname(f['root']).__contains__('\\bias')):
+                gc = GCModel()
+                gc.from_file(os.path.dirname(f['root']))
+                first_Row = gc.obs_[0] / gc.exp_[0]
+                middle_Row = gc.obs_[1] / gc.exp_[1]
+                last_Row = gc.obs_[2] / gc.exp_[2]
+                for i in range(len(first_Row)):
+                    firstRatio[i]=first_Row[i]
+                    middleRatio[i]=middle_Row[i]
+                    lastRatio[i]=last_Row[i]
+                self.salmon_bias_FirstSample[s_name]=firstRatio
+                self.salmon_bias_MiddleSample[s_name]=middleRatio
+                self.salmon_bias_LastSample[s_name]=lastRatio
+
+            #s_name = self.clean_s_name(s_name, f['root'])
             self.salmon_meta[s_name] = json.loads(f['f'])
         # Parse Fragment Length Distribution logs
         self.salmon_fld = dict()
@@ -38,6 +60,8 @@ class MultiqcModule(BaseMultiqcModule):
             if os.path.basename(f['root']) == 'libParams':
                 s_name = os.path.basename( os.path.dirname(f['root']) )
                 s_name = self.clean_s_name(s_name, f['root'])
+                log.info("Hey m in salmon printing SALmon FLD sname")
+                log.info(s_name)
                 parsed = OrderedDict()
                 for i, v in enumerate(f['f'].split()):
                     parsed[i] = float(v)
@@ -46,6 +70,8 @@ class MultiqcModule(BaseMultiqcModule):
                         log.debug("Duplicate sample name found! Overwriting: {}".format(s_name))
                     self.add_data_source(f, s_name)
                     self.salmon_fld[s_name] = parsed
+
+        # Parse Fragment Length Distribution logs
 
         # Filter to strip out ignored sample names
         self.salmon_meta = self.ignore_samples(self.salmon_meta)
@@ -56,6 +82,9 @@ class MultiqcModule(BaseMultiqcModule):
 
         if len(self.salmon_meta) > 0:
             log.info("Found {} meta reports".format(len(self.salmon_meta)))
+            log.info("hfffgfdfda")
+            log.error("errrror")
+            log.debug("debug")
             self.write_data_file(self.salmon_meta, 'multiqc_salmon')
         if len(self.salmon_fld) > 0:
             log.info("Found {} fragment length distributions".format(len(self.salmon_fld)))
@@ -92,3 +121,39 @@ class MultiqcModule(BaseMultiqcModule):
             'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
         }
         self.add_section( plot = linegraph.plot(self.salmon_fld, pconfig) )
+
+        pconfig2 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot1',
+            'title': 'Salmon : GC Bias Ratio in Beginning of Read',
+            'ylab': 'Ratio',
+            'xlab': 'GC Biases',
+            'ymin': 0,
+            'xmin': 0,
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_bias_FirstSample, pconfig2))
+
+        pconfig2 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot2',
+            'title': 'Salmon : GC Bias Ratio in Middle of Read',
+            'ylab': 'Ratio',
+            'xlab': 'GC Biases',
+            'ymin': 0,
+            'xmin': 0,
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_bias_MiddleSample, pconfig2))
+
+        pconfig3 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot2',
+            'title': 'Salmon : GC Bias Ratio in Middle of Read',
+            'ylab': 'Ratio',
+            'xlab': 'GC Biases',
+            'ymin': 0,
+            'xmin': 0,
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_bias_LastSample, pconfig2))
