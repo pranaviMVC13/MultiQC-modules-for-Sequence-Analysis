@@ -67,20 +67,3 @@ class GCModel:
 
         self.valid_ = True
         return True
-
-"""
-gc = GCModel()
-gc.from_file("C:\Users\mazsy\Downloads\project4\ERR188041\\bias")
-#print gc.obs_
-#print gc.exp_
-first_Row = gc.obs_[0]/gc.exp_[0]
-middle_Row=gc.obs_[1]/gc.exp_[1]
-last_Row=gc.obs_[2]/gc.exp_[2]
-print (len(first_Row))
-
-py.plot(first_Row)
-py.plot(middle_Row)
-py.plot(last_Row)
-py.ylabel('Ratio')
-py.show()
-"""
