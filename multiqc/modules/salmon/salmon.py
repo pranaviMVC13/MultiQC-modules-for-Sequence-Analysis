@@ -8,6 +8,8 @@ import json
 import logging
 import os
 from GCModel import GCModel
+from SeqModel import SeqModel
+from QuantReader import QuantModel
 
 from multiqc import config
 from multiqc.plots import linegraph
@@ -36,12 +38,20 @@ class MultiqcModule(BaseMultiqcModule):
         self.salmon_bias_FirstSampleWeights = dict()
         self.salmon_bias_MiddleSampleWeights = dict()
         self.salmon_bias_LastSampleWights = dict()
+        self.salmon_bias_Average=dict()
+        self.salmon_seq3 = dict()
+        self.salmon_seq5 = dict()
+        self.salmon_seqAverage=dict()
+        self.salmon_quant =dict()
         # Dictionary for sample wise averages for all bias ratios
         self.salmon_bias_TotalAverage = dict()
         # Declaring lists to hold avergaes of first , middle and last row
         self.heatmapFirstrow=[]
         self.heatMapMiddleRow=[]
         self.heatMapLastRow=[]
+        self.averageBiasHeatMap=[]
+        self.seq3HeatMap=[]
+        self.seq5HeatMap=[]
         self.sample_names=[]
         heatMapListFirst=[]
         heatMapListMiddle=[]
@@ -57,7 +67,12 @@ class MultiqcModule(BaseMultiqcModule):
             firstRatioWeight = OrderedDict()
             middleRatioWeight = OrderedDict()
             lastRatioWeight = OrderedDict()
+            average = OrderedDict()
             sampleAverage = OrderedDict()
+            seq3 = OrderedDict()
+            seq5 = OrderedDict()
+            seq_Average = OrderedDict()
+            quant_Dict = OrderedDict()
             s_name = self.clean_s_name(s_name, f['root'])
             # Check only for bias folder
             if os.path.basename(os.path.dirname(f['root'])) == 'bias':
@@ -67,6 +82,15 @@ class MultiqcModule(BaseMultiqcModule):
                 # Call the GCModel method to get all observed and expected values
                 gc.from_file(os.path.dirname(f['root']))
                 # Calculate the ratio of all rows for observed by expected
+                seq = SeqModel()
+                seq.from_file(os.path.dirname(f['root']))
+                seq3_prob = seq.obs3_/seq.exp3_
+                seq5_prob = seq.obs5_/seq.exp5_
+
+                quant = QuantModel()
+                quant.from_file(os.path.dirname(f['root']))
+                quant_ratio = quant.ratio
+
                 first_Row = gc.obs_[0] / gc.exp_[0]
                 firstRowWeightsRatio=gc.obs_weights_[0]/gc.exp_weights_[0]
                 middle_Row = gc.obs_[1] / gc.exp_[1]
@@ -85,14 +109,34 @@ class MultiqcModule(BaseMultiqcModule):
                 self.heatmapFirstrow.append(first_Row.tolist())
                 self.heatMapMiddleRow.append(middle_Row.tolist())
                 self.heatMapLastRow.append(last_Row.tolist())
+                self.seq3HeatMap.append(seq3_prob.tolist())
+                self.seq5HeatMap.append(seq5_prob.tolist())
+                heatmapAverage=[]
                 # Iterating over all the buckets to create Ordered Dicts
                 for i in range(len(first_Row)):
+                    index = i*(100/len(first_Row))
                     firstRatio[i]=first_Row[i]
                     middleRatio[i]=middle_Row[i]
                     lastRatio[i]=last_Row[i]
-                    firstRatioWeight[i] = firstRowWeightsRatio*first_Row[i]
-                    middleRatioWeight[i] = middleRowWeightsRatio * middle_Row[i]
-                    lastRatioWeight[i] = lastRowWeightsRatio * last_Row[i]
+                    firstRowRatios = firstRowWeightsRatio*first_Row[i]
+                    middleRowRatios = middleRowWeightsRatio * middle_Row[i]
+                    lastRowRatios = lastRowWeightsRatio * last_Row[i]
+                    firstRatioWeight[index] = firstRowRatios
+                    middleRatioWeight[index] = middleRowRatios
+                    lastRatioWeight[index] = lastRowRatios
+                    average[index]=np.mean([firstRowRatios,middleRowRatios,lastRowRatios])
+                    heatmapAverage.append(average[index])
+
+                self.averageBiasHeatMap.append(heatmapAverage)
+                for i in range(len(seq3_prob)):
+                    index=i*(100/len(seq3_prob))
+                    seq3[index]=seq3_prob[i]
+                    seq5[index]=seq5_prob[i]
+                    seq_Average[i]=np.mean([seq3_prob[i],seq5_prob[i]])
+
+
+                for i in range(len(quant_ratio)):
+                    quant_Dict[i] = quant_ratio[i]
 
                 # Setting all the ordered dicts to the outermost Dictionaries
                 self.salmon_bias_FirstSample[s_name]=firstRatio
@@ -101,6 +145,11 @@ class MultiqcModule(BaseMultiqcModule):
                 self.salmon_bias_FirstSampleWeights[s_name]=firstRatioWeight
                 self.salmon_bias_MiddleSampleWeights[s_name] = middleRatioWeight
                 self.salmon_bias_LastSampleWights[s_name] = lastRatioWeight
+                self.salmon_bias_Average[s_name] = average
+                self.salmon_seq3[s_name]=seq3
+                self.salmon_seq5[s_name]=seq5
+                self.salmon_seqAverage[s_name]=seq_Average
+                self.salmon_quant[s_name] = quant_Dict
 
             self.salmon_meta[s_name] = json.loads(f['f'])
 
@@ -179,7 +228,7 @@ class MultiqcModule(BaseMultiqcModule):
             'xmin': 0,
             'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
         }
-        self.add_section(plot=linegraph.plot(self.salmon_bias_FirstSample, pconfig1))
+        #self.add_section(plot=linegraph.plot(self.salmon_bias_FirstSample, pconfig1))
 
         pconfig2 = {
             'smooth_points': 500,
@@ -191,7 +240,7 @@ class MultiqcModule(BaseMultiqcModule):
             'xmin': 0,
             'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
         }
-        self.add_section(plot=linegraph.plot(self.salmon_bias_MiddleSample, pconfig2))
+        #self.add_section(plot=linegraph.plot(self.salmon_bias_MiddleSample, pconfig2))
 
         pconfig3 = {
             'smooth_points': 500,
@@ -203,12 +252,12 @@ class MultiqcModule(BaseMultiqcModule):
             'xmin': 0,
             'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
         }
-        self.add_section(plot=linegraph.plot(self.salmon_bias_LastSample, pconfig3))
+        #self.add_section(plot=linegraph.plot(self.salmon_bias_LastSample, pconfig3))
 
         pconfig4 = {
             'smooth_points': 500,
             'id': 'salmon_plot4',
-            'title': 'Salmon : GC Bias Ratio in Beginning of Read With Weight',
+            'title': 'Salmon : GC Bias Ratio in Beginning of Read With Weights',
             'ylab': 'Ratio',
             'xlab': 'GC Biases',
             'ymin': 0,
@@ -243,14 +292,71 @@ class MultiqcModule(BaseMultiqcModule):
 
         pconfig7 = {
             'smooth_points': 500,
-            'id': 'salmon_plot7',
-            'title': 'Salmon : GC Bias Average for every samples',
-            'ylab': 'Samples',
-            'xlab': 'Ratios',
+            'id': 'salmon_plot6',
+            'title': 'Salmon : Average GC Bias of all samples',
+            'ylab': 'Ratio',
+            'xlab': 'Bias',
+            'ymin': 0,
+            'xmin': 0,
             'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
         }
-        self.add_section(plot=bargraph.plot(self.salmon_bias_TotalAverage,pconfig7))
+        self.add_section(plot=linegraph.plot(self.salmon_bias_Average, pconfig7))
 
+        pconfig7 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot6',
+            'title': 'Salmon : Seq 3',
+            'ylab': 'Ratio',
+            'xlab': 'Seq ',
+            'ymin': 0,
+            'xmin': 0,
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_seq3, pconfig7))
+        pconfig8 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot6',
+            'title': 'Salmon : Seq 5',
+            'ylab': 'Ratio',
+            'xlab': 'Seq ',
+            'ymin': 0,
+            'xmin': 0,
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_seq5, pconfig8))
+
+        pconfig8 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot6',
+            'title': 'Salmon : Seq Average',
+            'ylab': 'Ratio',
+            'xlab': 'Seq ',
+            'ymin': 0,
+            'xmin': 0,
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_seqAverage, pconfig8))
+
+        pconfig7 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot7',
+            'title': 'Salmon : GC Bias Average for every samples',
+            'ylab': 'Ratios',
+            'xlab': 'Samples',
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=bargraph.plot(self.salmon_bias_TotalAverage, pconfig=pconfig7))
+
+        pconfig7 = {
+            'smooth_points': 500,
+            'id': 'salmon_plot7',
+            'title': 'Salmon : Quant plot',
+            'ylab': 'Ratios',
+            'xlab': 'Samples',
+            'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
+        }
+        self.add_section(plot=linegraph.plot(self.salmon_quant, pconfig7))
+        """
         # Calculating Correlatioon Coefficients for all the rows across all samples
         FirstRowCoff = np.corrcoef(self.heatmapFirstrow)
         self.add_section(name='Sample Similarity', description='Heatmap to display variance between first row ratios of all the samples',
@@ -273,6 +379,16 @@ class MultiqcModule(BaseMultiqcModule):
         x=['FirstRow','MiddleRow','LastRow']
         self.add_section(name='Sample Similarity',description='Heatmap to display variance between the first , middle and last row of all the samples',plot=heatmap.plot(corr,x,pconfig3))
 
+        AverageCoff = np.corrcoef(self.averageBiasHeatMap)
+        self.add_section(name='Sample Similarity', description='Heatmap to display average bias across all samples',
+                         plot=heatmap.plot(AverageCoff, self.sample_names, self.sample_names))
 
 
+        Seq3HeatMap = np.corrcoef(self.seq3HeatMap)
+        self.add_section(name='Sample Similarity', description='Heatmap to display Sequence 3 prime across all samples',
+                         plot=heatmap.plot(Seq3HeatMap, self.sample_names, self.sample_names))
 
+        Seq5HeatMap = np.corrcoef(self.seq5HeatMap)
+        self.add_section(name='Sample Similarity', description='Heatmap to display Sequence 5 prime across all samples',
+                         plot=heatmap.plot(Seq5HeatMap, self.sample_names, self.sample_names))"""
+        

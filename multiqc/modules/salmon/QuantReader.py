@@ -2,22 +2,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as py
 
-class GCModel:
+class QuantModel:
     def __init__(self):
-        self.obs_weights_ = None
-        self.exp_weights_ = None
-        self.obs_ = None
-        self.exp_ = None
-        self.obs3_weights_ = None
-        self.exp3_weights_ = None
-        self.obs3_ = None
-        self.exp3_ = None
-        self.obs5_weights_ = None
-        self.exp5_weights_ = None
-        self.obs5_ = None
-        self.exp5_ = None
-        self.dims_ = None
-        self.valid_ = False
+        self.ratio = None
 
     def populate_model_(self, data_):
         import struct
@@ -53,14 +40,11 @@ class GCModel:
     def from_file(self, dname):
         import os
         import gzip
-        obs_name = os.path.sep.join([dname, 'aux_info', 'obs_gc.gz'])
-        exp_name = os.path.sep.join([dname, 'aux_info', 'exp_gc.gz'])
-        """
-        obs3_name = os.path.sep.join([dname, 'aux_info', 'obs3_seq.gz'])
-        exp3_name = os.path.sep.join([dname, 'aux_info', 'exp3_seq.gz'])
-
-        obs5_name = os.path.sep.join([dname, 'aux_info', 'obs5_seq.gz'])
-        exp5_name = os.path.sep.join([dname, 'aux_info', 'exp5_seq.gz'])
+        quant_name = os.path.sep.join([dname, 'quant.sf'])
+        print quant_name
+        df = pd.read_csv(quant_name, sep='\t', header=(0))
+        self.ratio = (df['Length']/df['EffectiveLength']).tolist()
+        return True
         """
         # Observed and Expected for GC Bias ############################
         obs_dat, exp_dat = None, None
@@ -82,3 +66,4 @@ class GCModel:
 
         self.valid_ = True
         return True
+        """
