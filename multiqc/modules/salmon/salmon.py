@@ -17,6 +17,21 @@ from multiqc.plots import heatmap,bargraph
 from multiqc.modules.base_module import BaseMultiqcModule
 import numpy as np
 
+
+def checkJSONForBias(directory, checkBias):
+    is_file = False
+    for fname in os.listdir(directory):
+        if fname.endswith('.json'):
+            filename = os.path.sep.join([directory, fname])
+            with open(filename, 'r') as f:
+                jsonContents = json.load(f)
+                if checkBias in jsonContents:
+                    is_file = True
+                    return is_file
+
+    return is_file
+
+
 # Initialise the logger
 log = logging.getLogger(__name__)
 
@@ -75,7 +90,10 @@ class MultiqcModule(BaseMultiqcModule):
             quant_Dict = OrderedDict()
             s_name = self.clean_s_name(s_name, f['root'])
             # Check only for bias folder
-            if os.path.basename(os.path.dirname(f['root'])) == 'bias':
+            biasFile = checkJSONForBias(os.path.dirname(f['root']), 'gcBias')
+
+            # Check only for bias folder
+            if biasFile:
                 gc = GCModel() # Instantiate GCModel class
                 s_name_trimmed = s_name.partition('|')[0].split()
                 self.sample_names.append(s_name_trimmed)
@@ -356,7 +374,7 @@ class MultiqcModule(BaseMultiqcModule):
             'tt_label': '<b>{point.x:,.0f} bp</b>: {point.y:,.0f}',
         }
         self.add_section(plot=linegraph.plot(self.salmon_quant, pconfig7))
-        """
+
         # Calculating Correlatioon Coefficients for all the rows across all samples
         FirstRowCoff = np.corrcoef(self.heatmapFirstrow)
         self.add_section(name='Sample Similarity', description='Heatmap to display variance between first row ratios of all the samples',
@@ -390,5 +408,5 @@ class MultiqcModule(BaseMultiqcModule):
 
         Seq5HeatMap = np.corrcoef(self.seq5HeatMap)
         self.add_section(name='Sample Similarity', description='Heatmap to display Sequence 5 prime across all samples',
-                         plot=heatmap.plot(Seq5HeatMap, self.sample_names, self.sample_names))"""
+                         plot=heatmap.plot(Seq5HeatMap, self.sample_names, self.sample_names))
         

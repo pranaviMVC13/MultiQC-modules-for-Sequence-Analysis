@@ -41,7 +41,6 @@ class QuantModel:
         import os
         import gzip
         quant_name = os.path.sep.join([dname, 'quant.sf'])
-        print quant_name
         df = pd.read_csv(quant_name, sep='\t', header=(0))
         self.ratio = (df['Length']/df['EffectiveLength']).tolist()
         return True
